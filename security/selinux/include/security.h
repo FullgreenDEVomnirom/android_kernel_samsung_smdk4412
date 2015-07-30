@@ -31,13 +31,23 @@
 #define POLICYDB_VERSION_BOUNDARY	24
 #define POLICYDB_VERSION_FILENAME_TRANS	25
 #define POLICYDB_VERSION_ROLETRANS	26
+<<<<<<< HEAD
+=======
+#define POLICYDB_VERSION_NEW_OBJECT_DEFAULTS	27
+#define POLICYDB_VERSION_DEFAULT_TYPE	28
+#define POLICYDB_VERSION_CONSTRAINT_NAMES	29
+>>>>>>> 655732b... Revert "SELinux: per-command whitelisting of ioctls"
 
 /* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN   POLICYDB_VERSION_BASE
 #ifdef CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX
 #define POLICYDB_VERSION_MAX	CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX_VALUE
 #else
+<<<<<<< HEAD
 #define POLICYDB_VERSION_MAX	POLICYDB_VERSION_ROLETRANS
+=======
+#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_CONSTRAINT_NAMES
+>>>>>>> 655732b... Revert "SELinux: per-command whitelisting of ioctls"
 #endif
 
 /* Mask for just the mount related flags */

@@ -455,6 +455,50 @@ static void avc_audit_post_callback(struct audit_buffer *ab, void *a)
 	avc_dump_query(ab, ad->selinux_audit_data.ssid,
 			   ad->selinux_audit_data.tsid,
 			   ad->selinux_audit_data.tclass);
+<<<<<<< HEAD
+=======
+	if (ad->selinux_audit_data.denied) {
+		audit_log_format(ab, " permissive=%u",
+				 ad->selinux_audit_data.result ? 0 : 1);
+	}
+}
+
+/* This is the slow part of avc audit with big stack footprint */
+static noinline int slow_avc_audit(u32 ssid, u32 tsid, u16 tclass,
+		u32 requested, u32 audited, u32 denied, int result,
+		struct common_audit_data *a,
+		unsigned flags)
+{
+	struct common_audit_data stack_data;
+
+	if (!a) {
+		a = &stack_data;
+		COMMON_AUDIT_DATA_INIT(a, NONE);
+	}
+
+	/*
+	 * When in a RCU walk do the audit on the RCU retry.  This is because
+	 * the collection of the dname in an inode audit message is not RCU
+	 * safe.  Note this may drop some audits when the situation changes
+	 * during retry. However this is logically just as if the operation
+	 * happened a little later.
+	 */
+	if ((a->type == LSM_AUDIT_DATA_INODE) &&
+	    (flags & IPERM_FLAG_RCU))
+		return -ECHILD;
+
+	a->selinux_audit_data.tclass = tclass;
+	a->selinux_audit_data.requested = requested;
+	a->selinux_audit_data.ssid = ssid;
+	a->selinux_audit_data.tsid = tsid;
+	a->selinux_audit_data.audited = audited;
+	a->selinux_audit_data.denied = denied;
+	a->selinux_audit_data.result = result;
+	a->lsm_pre_audit = avc_audit_pre_callback;
+	a->lsm_post_audit = avc_audit_post_callback;
+	common_lsm_audit(a);
+	return 0;
+>>>>>>> 655732b... Revert "SELinux: per-command whitelisting of ioctls"
 }
 
 /**
@@ -729,6 +773,44 @@ int avc_ss_reset(u32 seqno)
 	return rc;
 }
 
+<<<<<<< HEAD
+=======
+/*
+ * Slow-path helper function for avc_has_perm_noaudit,
+ * when the avc_node lookup fails. We get called with
+ * the RCU read lock held, and need to return with it
+ * still held, but drop if for the security compute.
+ *
+ * Don't inline this, since it's the slow-path and just
+ * results in a bigger stack frame.
+ */
+static noinline struct avc_node *avc_compute_av(u32 ssid, u32 tsid,
+			 u16 tclass, struct av_decision *avd)
+{
+	rcu_read_unlock();
+	security_compute_av(ssid, tsid, tclass, avd);
+	rcu_read_lock();
+	return avc_insert(ssid, tsid, tclass, avd);
+}
+
+static noinline int avc_denied(u32 ssid, u32 tsid,
+			 u16 tclass, u32 requested,
+			 unsigned flags,
+			 struct av_decision *avd)
+{
+	if (flags & AVC_STRICT)
+		return -EACCES;
+
+	if (selinux_enforcing && !(avd->flags & AVD_FLAGS_PERMISSIVE))
+		return -EACCES;
+
+	avc_update_node(AVC_CALLBACK_GRANT, requested, ssid,
+				tsid, tclass, avd->seqno);
+	return 0;
+}
+
+
+>>>>>>> 655732b... Revert "SELinux: per-command whitelisting of ioctls"
 /**
  * avc_has_perm_noaudit - Check permissions but perform no auditing.
  * @ssid: source security identifier
@@ -764,16 +846,21 @@ int avc_has_perm_noaudit(u32 ssid, u32 tsid,
 
 	node = avc_lookup(ssid, tsid, tclass);
 	if (unlikely(!node)) {
+<<<<<<< HEAD
 		rcu_read_unlock();
 		security_compute_av(ssid, tsid, tclass, avd);
 		rcu_read_lock();
 		node = avc_insert(ssid, tsid, tclass, avd);
+=======
+		node = avc_compute_av(ssid, tsid, tclass, avd);
+>>>>>>> 655732b... Revert "SELinux: per-command whitelisting of ioctls"
 	} else {
 		memcpy(avd, &node->ae.avd, sizeof(*avd));
 		avd = &node->ae.avd;
 	}
 
 	denied = requested & ~(avd->allowed);
+<<<<<<< HEAD
 
 	if (denied) {
 		if (flags & AVC_STRICT)
@@ -784,6 +871,10 @@ int avc_has_perm_noaudit(u32 ssid, u32 tsid,
 		else
 			rc = -EACCES;
 	}
+=======
+	if (unlikely(denied))
+		rc = avc_denied(ssid, tsid, tclass, requested, flags, avd);
+>>>>>>> 655732b... Revert "SELinux: per-command whitelisting of ioctls"
 
 	rcu_read_unlock();
 	return rc;
